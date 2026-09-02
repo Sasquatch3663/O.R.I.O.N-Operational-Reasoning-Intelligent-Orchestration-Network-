@@ -14,6 +14,19 @@ readme = "README.md"
 requires-python = ">=3.10,<3.14"
 license = { text = "MIT" }
 
+authors = [
+    { name = "Ayush" }
+]
+
+keywords = [
+    "ai",
+    "assistant",
+    "voice-assistant",
+    "personal-ai",
+    "automation",
+    "local-ai"
+]
+
 dependencies = [
     "python-dotenv>=1.0.0,<2.0.0",
     "PyYAML>=6.0.1,<7.0.0"
