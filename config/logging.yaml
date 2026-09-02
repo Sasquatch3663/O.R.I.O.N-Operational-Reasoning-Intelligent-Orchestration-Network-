@@ -3,18 +3,51 @@ version: 1
 disable_existing_loggers: false
 
 formatters:
+
   standard:
     format: "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
     datefmt: "%Y-%m-%d %H:%M:%S"
 
+
 handlers:
+
   console:
     class: logging.StreamHandler
-    level: DEBUG
+    level: INFO
     formatter: standard
     stream: ext://sys.stdout
 
+  file:
+    class: logging.handlers.RotatingFileHandler
+    level: DEBUG
+    formatter: standard
+    filename: logs/orion.log
+    maxBytes: 5242880
+    backupCount: 5
+    encoding: utf-8
+
+  error_file:
+    class: logging.handlers.RotatingFileHandler
+    level: ERROR
+    formatter: standard
+    filename: logs/errors.log
+    maxBytes: 5242880
+    backupCount: 5
+    encoding: utf-8
+
+
+loggers:
+
+  orion:
+    level: DEBUG
+    handlers:
+      - console
+      - file
+      - error_file
+    propagate: false
+
+
 root:
-  level: INFO
+  level: WARNING
   handlers:
     - console
