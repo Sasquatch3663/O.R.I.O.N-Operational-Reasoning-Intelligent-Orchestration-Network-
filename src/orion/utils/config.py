@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
 import yaml
-from dotenv import load_dotenv
+from dotenv import load_dotenv  # type: ignore
 
 
 class ConfigurationError(Exception):
