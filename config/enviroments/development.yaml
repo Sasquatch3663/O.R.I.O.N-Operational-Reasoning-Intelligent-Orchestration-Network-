@@ -1,0 +1,8 @@
+runtime:
+  debug: true
+
+logging:
+  level: DEBUG
+
+security:
+  require_confirmation: true

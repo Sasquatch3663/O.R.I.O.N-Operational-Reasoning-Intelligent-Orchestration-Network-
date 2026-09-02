@@ -1,0 +1,8 @@
+runtime:
+  debug: false
+
+logging:
+  level: INFO
+
+security:
+  require_confirmation: true

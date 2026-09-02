@@ -1,0 +1,26 @@
+orion:
+  name: ORION
+  version: "0.1.0"
+
+environment:
+  default: development
+
+runtime:
+  debug: false
+  data_directory: data
+  log_directory: logs
+  model_directory: models
+
+interface:
+  default: cli
+
+brain:
+  provider: local
+  model: ""
+
+memory:
+  enabled: true
+
+security:
+  enabled: true
+  require_confirmation: true
