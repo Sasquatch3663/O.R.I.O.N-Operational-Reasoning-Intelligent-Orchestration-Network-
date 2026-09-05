@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Dict
 
 from orion.core.engine import RuntimeEngine
+from orion.interface.cli import CLIInterface
+from orion.interface.manager import InterfaceManager
 from orion.utils.config import Config
 from orion.utils.logger import get_logger
 from orion.utils.system import OrionPaths
@@ -14,10 +16,19 @@ class OrionAssistant:
     def __init__(self, config: Config) -> None:
         self.config = config
         self.paths = OrionPaths(config)
-
         self.logger = get_logger("orion.core.assistant")
 
+        # Create the runtime engine before interfaces,
+        # because interfaces use the engine's EventBus.
         self.engine = RuntimeEngine()
+
+        self.interfaces = InterfaceManager()
+
+        self.cli = CLIInterface(
+            self.engine.event_bus
+        )
+
+        self.interfaces.register(self.cli)
 
         self.initialized = False
 
@@ -33,7 +44,6 @@ class OrionAssistant:
         self.logger.info("Starting ORION initialization.")
 
         self.paths.create_directories()
-
         self.engine.initialize()
 
         self.initialized = True
@@ -51,11 +61,12 @@ class OrionAssistant:
         self.logger.info("Starting ORION.")
 
         self.engine.start()
+        self.interfaces.start_all()
 
         self.logger.info("ORION is now running.")
 
     def run(self) -> None:
-        """Run the ORION runtime."""
+        """Run ORION."""
 
         if not self.initialized:
             self.initialize()
@@ -63,7 +74,7 @@ class OrionAssistant:
         if not self.engine.is_running:
             self.start()
 
-        self.engine.run()
+        self.engine.run(self.cli)
 
     def stop(self) -> None:
         """Stop ORION."""
@@ -73,17 +84,16 @@ class OrionAssistant:
         self.engine.stop()
 
     def shutdown(self) -> None:
-        """Shutdown ORION and release runtime resources."""
+        """Shutdown ORION."""
 
         self.logger.info("Shutting down ORION.")
 
+        self.interfaces.stop_all()
         self.engine.shutdown()
 
         self.initialized = False
 
-        self.logger.info(
-            "ORION shutdown completed."
-        )
+        self.logger.info("ORION shutdown completed.")
 
     def status(self) -> Dict[str, object]:
         """Return current ORION status."""

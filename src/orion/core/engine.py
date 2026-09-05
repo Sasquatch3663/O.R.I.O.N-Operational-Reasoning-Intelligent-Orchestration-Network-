@@ -1,117 +1,180 @@
 from __future__ import annotations
 
 import threading
-from typing import Optional
 
+from orion.core.events import (
+    Event,
+    EventBus,
+    EventType,
+)
 from orion.core.state import RuntimeState
 from orion.utils.logger import get_logger
+from orion.interface.base import BaseInterface
 
 
 class RuntimeEngine:
     """
     Controls the lifecycle of the ORION runtime.
-
-    The engine is intentionally independent of the AI brain,
-    voice system, tools, and memory system.
     """
 
     def __init__(self) -> None:
-        self.logger = get_logger("orion.core.engine")
+        self.logger = get_logger(
+            "orion.core.engine"
+        )
 
         self._state = RuntimeState.CREATED
+
         self._stop_event = threading.Event()
+
+        self.event_bus = EventBus()
 
     @property
     def state(self) -> RuntimeState:
-        """Return the current runtime state."""
+        """Return current runtime state."""
+
         return self._state
 
     @property
     def is_running(self) -> bool:
-        """Return True when ORION is actively running."""
-        return self._state == RuntimeState.RUNNING
+        """Return True when runtime is active."""
+
+        return (
+            self._state
+            == RuntimeState.RUNNING
+        )
 
     def initialize(self) -> None:
-        """Initialize runtime components."""
+        """Initialize runtime."""
 
         if self._state != RuntimeState.CREATED:
             self.logger.warning(
-                "Runtime initialization requested from state: %s",
+                "Runtime initialization requested "
+                "from state: %s",
                 self._state.value,
             )
             return
 
-        self.logger.info("Initializing ORION runtime.")
+        self.logger.info(
+            "Initializing ORION runtime."
+        )
 
         self._state = RuntimeState.INITIALIZING
+
         self._stop_event.clear()
 
-        self.logger.info("ORION runtime initialized.")
+        self.logger.info(
+            "ORION runtime initialized."
+        )
+
+        self.event_bus.publish(
+            Event(
+                type=EventType.STARTUP,
+                source="runtime",
+            )
+        )
 
     def start(self) -> None:
-        """Start the runtime loop."""
+        """Start runtime."""
 
         if self._state == RuntimeState.CREATED:
             self.initialize()
 
-        if self._state != RuntimeState.INITIALIZING:
+        if (
+            self._state
+            != RuntimeState.INITIALIZING
+        ):
             raise RuntimeError(
-                f"Cannot start runtime from state: {self._state.value}"
+                "Cannot start runtime from state: "
+                f"{self._state.value}"
             )
 
         self._state = RuntimeState.RUNNING
 
-        self.logger.info("ORION runtime started.")
+        self.logger.info(
+            "ORION runtime started."
+        )
 
-    def run(self) -> None:
-        """
-        Run the main ORION runtime loop.
-
-        The runtime currently accepts simple console commands.
-        Future phases will replace this with the event system.
-        """
+    def run_interface(
+        self,
+        interface: BaseInterface,
+    ) -> None:
+        """Run ORION through an abstract interface."""
 
         if not self.is_running:
             raise RuntimeError(
-                f"Cannot run runtime from state: {self._state.value}"
+                "Runtime must be running before "
+                "an interface can be used."
             )
 
-        self.logger.info("ORION runtime loop entered.")
+        self.logger.info(
+            "Runtime using interface: %s",
+            interface.name,
+        )
 
         try:
             while self.is_running:
-                command = input("ORION > ").strip().lower()
+                command = interface.receive()
 
-                if command in {"exit", "quit", "shutdown"}:
-                    self.logger.info(
-                        "Shutdown command received: %s",
-                        command,
-                    )
+                if command is None:
                     self.stop()
                     break
 
-                if command:
-                    self.logger.info(
-                        "Received runtime command: %s",
-                        command,
-                    )
-                    print(
-                        f"ORION received: {command}"
+                if not command:
+                    continue
+
+                normalized = command.lower()
+
+                if normalized in {
+                    "exit",
+                    "quit",
+                    "shutdown",
+                }:
+                    interface.publish_shutdown(
+                        normalized
                     )
 
-        except EOFError:
-            self.logger.info(
-                "Input stream closed."
-            )
-            self.stop()
+                    self.stop()
+                    break
+
+                interface.publish_input(
+                    command
+                )
 
         except KeyboardInterrupt:
             self.logger.info(
                 "Keyboard interrupt received."
             )
+
             self.stop()
 
-        self.logger.info("ORION runtime loop exited.")
+        except EOFError:
+            self.logger.info(
+                "Interface input closed."
+            )
+
+            self.stop()
+
+    def run(
+        self,
+        interface: BaseInterface,
+    ) -> None:
+        """Run ORION using an abstract interface."""
+
+        if not self.is_running:
+            raise RuntimeError(
+                "Cannot run runtime from state: "
+                f"{self._state.value}"
+            )
+
+        self.logger.info(
+            "ORION runtime loop entered."
+        )
+
+        self.run_interface(interface)
+
+        self.logger.info(
+            "ORION runtime loop exited."
+        )
 
     def stop(self) -> None:
         """Request runtime shutdown."""
@@ -122,14 +185,19 @@ class RuntimeEngine:
         }:
             return
 
-        self.logger.info("Stopping ORION runtime.")
+        self.logger.info(
+            "Stopping ORION runtime."
+        )
 
         self._state = RuntimeState.STOPPING
+
         self._stop_event.set()
 
         self._state = RuntimeState.STOPPED
 
-        self.logger.info("ORION runtime stopped.")
+        self.logger.info(
+            "ORION runtime stopped."
+        )
 
     def shutdown(self) -> None:
         """Perform final runtime cleanup."""
@@ -140,4 +208,8 @@ class RuntimeEngine:
         if self._state == RuntimeState.STOPPING:
             self._state = RuntimeState.STOPPED
 
-        self.logger.info("ORION runtime shutdown completed.")
+        self.event_bus.clear()
+
+        self.logger.info(
+            "ORION runtime shutdown completed."
+        )
