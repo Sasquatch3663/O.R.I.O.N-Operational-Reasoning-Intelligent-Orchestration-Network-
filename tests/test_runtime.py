@@ -2,9 +2,41 @@ from pathlib import Path
 
 from orion.core.assistant import OrionAssistant
 from orion.core.engine import RuntimeEngine
+from orion.core.events import Event, EventType
 from orion.core.state import RuntimeState
+from orion.interface.base import BaseInterface
 from orion.utils.config import Config
 from orion.utils.logger import setup_logging
+
+
+class MockRuntimeInterface(BaseInterface):
+    """Mock interface used for runtime tests."""
+
+    def __init__(self, event_bus):
+        super().__init__(
+            "test",
+            event_bus,
+        )
+
+        self.commands = [
+            "hello",
+            "exit",
+        ]
+
+    def start(self):
+        self._running = True
+
+    def stop(self):
+        self._running = False
+
+    def receive(self):
+        if self.commands:
+            return self.commands.pop(0)
+
+        return "exit"
+
+    def send(self, message):
+        pass
 
 
 def test_runtime_initial_state() -> None:
@@ -67,6 +99,7 @@ def test_assistant_runtime(tmp_path: Path) -> None:
     assistant.initialize()
 
     assert assistant.initialized is True
+
     assert (
         assistant.engine.state
         == RuntimeState.INITIALIZING
@@ -93,3 +126,60 @@ def test_assistant_runtime(tmp_path: Path) -> None:
     )
 
     assert assistant.initialized is False
+
+
+def test_runtime_publishes_startup_event() -> None:
+    engine = RuntimeEngine()
+
+    received = []
+
+    def handler(event: Event) -> None:
+        received.append(event)
+
+    engine.event_bus.subscribe(
+        EventType.STARTUP,
+        handler,
+    )
+
+    engine.initialize()
+
+    assert len(received) == 1
+    assert received[0].type == EventType.STARTUP
+    assert received[0].source == "runtime"
+
+
+def test_runtime_interface_loop() -> None:
+    engine = RuntimeEngine()
+
+    engine.initialize()
+    engine.start()
+
+    interface = MockRuntimeInterface(
+        engine.event_bus
+    )
+
+    interface.start()
+
+    received = []
+
+    def handler(event):
+        received.append(event)
+
+    engine.event_bus.subscribe(
+        EventType.USER_INPUT,
+        handler,
+    )
+
+    engine.run(interface)
+
+    assert len(received) == 1
+
+    assert (
+        received[0].payload["text"]
+        == "hello"
+    )
+
+    assert (
+        engine.state
+        == RuntimeState.STOPPED
+    )
