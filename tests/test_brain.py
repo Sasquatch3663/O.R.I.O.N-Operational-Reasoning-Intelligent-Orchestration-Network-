@@ -1,3 +1,5 @@
+import pytest # type: ignore
+
 from orion.brain import (
     BrainEngine,
     IntentAnalyzer,
@@ -5,6 +7,12 @@ from orion.brain import (
     UserInput,
 )
 from orion.core.events import Event, EventBus, EventType
+from orion.security import (
+    PermissionLevel,
+    PermissionManager,
+    SecurityError,
+    SecurityValidator,
+)
 
 
 def test_user_input_normalization():
@@ -39,6 +47,23 @@ def test_memory_intent():
         intent.type
         == IntentType.MEMORY_REQUEST
     )
+
+
+def test_memory_request_creates_write_plan():
+    brain = BrainEngine()
+
+    result = brain.process(
+        UserInput(
+            text="remember that ORION is local",
+            source="test",
+        )
+    )
+
+    step = result.plan.steps[0]
+
+    assert step.action == "memory_store"
+    assert step.permission == PermissionLevel.WRITE
+    assert step.requires_confirmation is True
 
 
 def test_tool_intent():
@@ -111,3 +136,31 @@ def test_brain_processes_user_input_events():
         responses[0].payload["plan"][0]["action"]
         == "tool_request"
     )
+
+
+def test_tool_plan_requires_execute_permission():
+    brain = BrainEngine()
+
+    result = brain.process(
+        UserInput(text="open calculator")
+    )
+
+    step = result.plan.steps[0]
+
+    assert step.permission == PermissionLevel.EXECUTE
+    assert step.requires_confirmation is True
+
+
+def test_brain_validates_plan_against_security_policy():
+    brain = BrainEngine(
+        security_validator=SecurityValidator(
+            PermissionManager(PermissionLevel.READ)
+        )
+    )
+
+    result = brain.process(
+        UserInput(text="open calculator")
+    )
+
+    with pytest.raises(SecurityError):
+        brain.validate_plan(result.plan)

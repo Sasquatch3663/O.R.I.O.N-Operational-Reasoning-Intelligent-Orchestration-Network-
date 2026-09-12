@@ -64,6 +64,12 @@ class ReasoningEngine:
                     "I understand that you want "
                     "me to remember something."
                 ),
+                actions=[
+                    {
+                        "type": "memory_store",
+                        "parameters": intent.parameters,
+                    }
+                ],
                 confidence=0.7,
             )
 
