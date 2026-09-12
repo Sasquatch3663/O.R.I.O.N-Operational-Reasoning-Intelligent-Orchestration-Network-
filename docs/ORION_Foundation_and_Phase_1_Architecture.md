@@ -4,8 +4,8 @@
 **Distribution:** `orion-assistant`  
 **Python package:** `orion`  
 **Python baseline:** `>=3.10,<3.14`  
-**Current status:** Phase 0 complete; Phase 1 foundation in progress  
-**Validated test suite:** 74 passing tests
+**Current status:** Phase 0 and Phase 1 complete  
+**Validated test suite:** 79 passing tests
 
 ---
 
@@ -200,6 +200,20 @@ brain:
 
 Leaving `brain.model` blank keeps deterministic mode active. If a configured local service cannot be reached, the brain preserves the deterministic response and records model availability metadata in `BRAIN_RESPONSE`; it does not permit the model failure to disrupt planning.
 
+### 5.7 Phase 1 validation
+
+Phase 1 is complete because the following boundaries are exercised by automated tests:
+
+```text
+Wake phrase + spoken command
+    → WAKE_WORD
+    → USER_INPUT
+    → BrainResult / security-aware Plan
+    → BRAIN_RESPONSE + AVATAR_EXPRESSION
+```
+
+Validation also confirms that a disabled wake profile does not activate, malformed user-input events are rejected, a local-model failure falls back safely to deterministic reasoning, and a model-enhanced response cannot alter deterministic plan permissions.
+
 ---
 
 ## 6. Wake Phrase Foundation
@@ -336,10 +350,10 @@ pytest -q
 Current result:
 
 ```text
-74 passed
+79 passed
 ```
 
-Coverage includes configuration, runtime lifecycle, events, interfaces, tools, memory, security, deterministic brain processing, provider injection, avatar expressions, and the wake-word-to-listening-avatar event path.
+Coverage includes configuration, runtime lifecycle, events, interfaces, tools, memory, security, deterministic brain processing, provider injection, avatar expressions, model fallback, malformed-event handling, and the complete wake phrase → brain → pet event path.
 
 ---
 
@@ -359,12 +373,11 @@ These are separate implementation phases. The contracts introduced so far keep t
 
 ## 12. Next Recommended Milestones
 
-1. **Phase 1L–1M:** Expand brain tests and validate the complete Phase 1 boundary.
-3. **Voice phase:** Select platform audio adapters and connect them to `VOICE_INPUT`.
-4. **Pet UI phase:** Build Windows and Android renderers that subscribe to `AVATAR_EXPRESSION`.
-5. **Execution phase:** Add approved tool/memory executors behind existing security checks.
+1. **Voice phase:** Select platform audio adapters and connect them to `VOICE_INPUT`.
+2. **Pet UI phase:** Build Windows and Android renderers that subscribe to `AVATAR_EXPRESSION`.
+3. **Execution phase:** Add approved tool/memory executors behind existing security checks.
 
 ## Status
 
 **Phase 0 — Architecture & Foundation: COMPLETE**  
-**Phase 1 — Core Brain: foundation milestones 1A–1K and companion-pet event contracts complete**
+**Phase 1 — Core Brain: COMPLETE**

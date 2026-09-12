@@ -78,6 +78,15 @@ class RuntimeEngine:
             )
         )
 
+        if match.command:
+            self.event_bus.publish(
+                Event(
+                    type=EventType.USER_INPUT,
+                    payload={"text": match.command},
+                    source=event.source or "voice",
+                )
+            )
+
     @property
     def state(self) -> RuntimeState:
         """Return current runtime state."""
