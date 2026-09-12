@@ -182,6 +182,10 @@ class Config:
                 "brain",
                 "model",
             ),
+            "ORION_MODEL_ENDPOINT": (
+                "brain",
+                "endpoint",
+            ),
         }
 
         for env_name, path in mappings.items():

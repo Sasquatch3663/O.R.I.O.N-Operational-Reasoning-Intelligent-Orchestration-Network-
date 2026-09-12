@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Dict
 
+from orion.brain import create_model_provider
 from orion.core.engine import RuntimeEngine
 from orion.interface.cli import CLIInterface
 from orion.interface.manager import InterfaceManager
@@ -27,10 +28,23 @@ class OrionAssistant:
             enabled=config.get("voice.wake_word.enabled", True),
         )
 
+        model_provider = create_model_provider(
+            provider_name=config.get("brain.provider", "local"),
+            model_name=config.get("brain.model", ""),
+            endpoint=config.get(
+                "brain.endpoint",
+                "http://127.0.0.1:11434/api/generate",
+            ),
+            timeout_seconds=float(
+                config.get("brain.timeout_seconds", 120)
+            ),
+        )
+
         self.engine = RuntimeEngine(
             wake_word_detector=WakeWordDetector(
                 self.wake_word_profile
-            )
+            ),
+            model_provider=model_provider,
         )
 
         self.interfaces = InterfaceManager()

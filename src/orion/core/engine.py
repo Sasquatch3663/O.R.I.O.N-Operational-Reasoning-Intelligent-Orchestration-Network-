@@ -3,6 +3,7 @@ from __future__ import annotations
 import threading
 
 from orion.brain.engine import BrainEngine
+from orion.brain.model import BaseModelProvider
 from orion.core.events import (
     Event,
     EventBus,
@@ -22,6 +23,7 @@ class RuntimeEngine:
     def __init__(
         self,
         wake_word_detector: WakeWordDetector | None = None,
+        model_provider: BaseModelProvider | None = None,
     ) -> None:
         self.logger = get_logger(
             "orion.core.engine"
@@ -41,7 +43,10 @@ class RuntimeEngine:
                 self.handle_voice_input,
             )
 
-        self.brain = BrainEngine(self.event_bus)
+        self.brain = BrainEngine(
+            self.event_bus,
+            model_provider=model_provider,
+        )
 
     def handle_voice_input(self, event: Event) -> None:
         """Route a platform audio transcript through the configured wake phrase."""

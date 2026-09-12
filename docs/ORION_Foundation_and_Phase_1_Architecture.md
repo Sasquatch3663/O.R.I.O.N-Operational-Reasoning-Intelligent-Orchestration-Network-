@@ -5,7 +5,7 @@
 **Python package:** `orion`  
 **Python baseline:** `>=3.10,<3.14`  
 **Current status:** Phase 0 complete; Phase 1 foundation in progress  
-**Validated test suite:** 72 passing tests
+**Validated test suite:** 74 passing tests
 
 ---
 
@@ -178,7 +178,7 @@ The response payload contains the response text, actions, confidence, plan, mode
 
 Optional `MemoryManager` and `ToolRegistry` dependencies enrich `ReasoningContext` with relevant memories and available tool names. The brain does not bypass their contracts or execute unapproved actions.
 
-### 5.6 Model-provider abstraction
+### 5.6 Model-provider abstraction and local adapter
 
 `BaseModelProvider` defines one provider-neutral operation:
 
@@ -187,6 +187,18 @@ generate(request: ModelRequest) -> ModelResponse
 ```
 
 `ModelRequest` carries normalized text, intent, relevant memories, and available tool names. A configured provider may improve the user-facing response; deterministic planning remains the authority for actions. With no provider configured, ORION continues using its deterministic response path.
+
+Phase 1K adds `OllamaModelProvider`, a dependency-free adapter for a local Ollama service. It sends a non-streaming request to the configured local `/api/generate` endpoint and converts the returned text into `ModelResponse`. Configure a local model name to enable it:
+
+```yaml
+brain:
+  provider: local
+  model: "qwen2.5:3b"
+  endpoint: "http://127.0.0.1:11434/api/generate"
+  timeout_seconds: 120
+```
+
+Leaving `brain.model` blank keeps deterministic mode active. If a configured local service cannot be reached, the brain preserves the deterministic response and records model availability metadata in `BRAIN_RESPONSE`; it does not permit the model failure to disrupt planning.
 
 ---
 
@@ -291,6 +303,8 @@ Relevant current configuration:
 brain:
   provider: local
   model: ""
+  endpoint: "http://127.0.0.1:11434/api/generate"
+  timeout_seconds: 120
 
 voice:
   wake_word:
@@ -322,7 +336,7 @@ pytest -q
 Current result:
 
 ```text
-72 passed
+74 passed
 ```
 
 Coverage includes configuration, runtime lifecycle, events, interfaces, tools, memory, security, deterministic brain processing, provider injection, avatar expressions, and the wake-word-to-listening-avatar event path.
@@ -337,7 +351,6 @@ The present codebase deliberately does not yet implement:
 - Microphone capture, acoustic wake-word models, speech-to-text, or text-to-speech.
 - Per-user account/profile storage and cross-device synchronization.
 - Actual tool execution or persistent memory implementation.
-- A concrete local-model adapter.
 - Avatar assets, rigging, rendering, or animation playback.
 
 These are separate implementation phases. The contracts introduced so far keep them from requiring a rewrite of the core brain.
@@ -346,8 +359,7 @@ These are separate implementation phases. The contracts introduced so far keep t
 
 ## 12. Next Recommended Milestones
 
-1. **Phase 1K:** Implement a concrete local model adapter behind `BaseModelProvider`.
-2. **Phase 1L–1M:** Expand brain tests and validate the complete Phase 1 boundary.
+1. **Phase 1L–1M:** Expand brain tests and validate the complete Phase 1 boundary.
 3. **Voice phase:** Select platform audio adapters and connect them to `VOICE_INPUT`.
 4. **Pet UI phase:** Build Windows and Android renderers that subscribe to `AVATAR_EXPRESSION`.
 5. **Execution phase:** Add approved tool/memory executors behind existing security checks.
@@ -355,4 +367,4 @@ These are separate implementation phases. The contracts introduced so far keep t
 ## Status
 
 **Phase 0 — Architecture & Foundation: COMPLETE**  
-**Phase 1 — Core Brain: foundation milestones 1A–1J and companion-pet event contracts complete**
+**Phase 1 — Core Brain: foundation milestones 1A–1K and companion-pet event contracts complete**

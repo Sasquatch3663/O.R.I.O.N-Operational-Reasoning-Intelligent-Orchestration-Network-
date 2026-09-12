@@ -7,6 +7,7 @@ from orion.brain.input import UserInput
 from orion.brain.intent import IntentAnalyzer
 from orion.brain.model import (
     BaseModelProvider,
+    ModelProviderError,
     ModelRequest,
     ModelResponse,
 )
@@ -35,6 +36,7 @@ class BrainResult:
     plan: Plan
     context: ReasoningContext
     model_response: Optional[ModelResponse] = None
+    model_error: Optional[str] = None
     avatar_expression: Optional[AvatarExpression] = None
 
 
@@ -93,7 +95,9 @@ class BrainEngine:
             context
         )
 
-        model_response = self._generate_model_response(context)
+        model_response, model_error = self._generate_model_response(
+            context
+        )
 
         if model_response is not None:
             reasoning.response = model_response.text
@@ -111,6 +115,7 @@ class BrainEngine:
             plan=plan,
             context=context,
             model_response=model_response,
+            model_error=model_error,
             avatar_expression=avatar_expression,
         )
 
@@ -202,11 +207,7 @@ class BrainEngine:
             "response": result.reasoning.response,
             "actions": result.reasoning.actions,
             "confidence": result.reasoning.confidence,
-            "model": (
-                result.model_response.metadata
-                if result.model_response is not None
-                else None
-            ),
+            "model": BrainEngine._model_payload(result),
             "memories_used": len(result.context.memories),
             "avatar": (
                 result.avatar_expression.to_payload()
@@ -243,23 +244,39 @@ class BrainEngine:
 
         return {"available_tools": self.tool_registry.names()}
 
+    @staticmethod
+    def _model_payload(result: BrainResult) -> Optional[Dict[str, Any]]:
+        if result.model_response is not None:
+            return result.model_response.metadata
+
+        if result.model_error is not None:
+            return {
+                "status": "unavailable",
+                "error": result.model_error,
+            }
+
+        return None
+
     def _generate_model_response(
         self,
         context: ReasoningContext,
-    ) -> Optional[ModelResponse]:
+    ) -> tuple[Optional[ModelResponse], Optional[str]]:
         """Ask an optional provider to improve the deterministic response."""
 
         if self.model_provider is None:
-            return None
+            return None, None
 
-        return self.model_provider.generate(
-            ModelRequest(
-                text=context.user_input.text,
-                intent=context.intent.type.value,
-                memories=context.memories,
-                available_tools=context.metadata.get(
-                    "available_tools",
-                    [],
-                ),
-            )
-        )
+        try:
+            return self.model_provider.generate(
+                ModelRequest(
+                    text=context.user_input.text,
+                    intent=context.intent.type.value,
+                    memories=context.memories,
+                    available_tools=context.metadata.get(
+                        "available_tools",
+                        [],
+                    ),
+                )
+            ), None
+        except ModelProviderError as exc:
+            return None, str(exc)

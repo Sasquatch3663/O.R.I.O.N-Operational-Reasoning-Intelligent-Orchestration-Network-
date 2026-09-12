@@ -20,6 +20,14 @@ from orion.brain.model import (
     ModelResponse,
 )
 
+from orion.brain.local_model import (
+    OllamaModelProvider,
+)
+
+from orion.brain.providers import (
+    create_model_provider,
+)
+
 from orion.brain.planner import (
     Plan,
     PlanStep,
@@ -44,6 +52,8 @@ __all__ = [
     "ModelProviderError",
     "ModelRequest",
     "ModelResponse",
+    "OllamaModelProvider",
+    "create_model_provider",
     "Plan",
     "PlanStep",
     "Planner",

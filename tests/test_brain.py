@@ -7,6 +7,8 @@ from orion.brain import (
     IntentType,
     ModelRequest,
     ModelResponse,
+    ModelProviderError,
+    OllamaModelProvider,
     UserInput,
 )
 from orion.core.events import Event, EventBus, EventType
@@ -27,6 +29,11 @@ class StubModelProvider(BaseModelProvider):
             confidence=0.9,
             metadata={"provider": "stub"},
         )
+
+
+class UnavailableModelProvider(BaseModelProvider):
+    def generate(self, request: ModelRequest) -> ModelResponse:
+        raise ModelProviderError("Local service is offline.")
 
 
 def test_user_input_normalization():
@@ -130,6 +137,47 @@ def test_model_request_builds_portable_prompt():
 
     assert "Hello ORION" in request.prompt()
     assert "calendar" in request.prompt()
+
+
+def test_ollama_provider_uses_local_generate_contract():
+    captured = {}
+
+    def transport(payload):
+        captured.update(payload)
+        return {
+            "model": "qwen2.5:3b",
+            "response": "Hello from local ORION.",
+            "total_duration": 42,
+            "eval_count": 9,
+        }
+
+    provider = OllamaModelProvider(
+        model="qwen2.5:3b",
+        transport=transport,
+    )
+
+    response = provider.generate(
+        ModelRequest(text="Hello", intent="conversation")
+    )
+
+    assert captured["model"] == "qwen2.5:3b"
+    assert captured["stream"] is False
+    assert response.text == "Hello from local ORION."
+    assert response.metadata["provider"] == "ollama"
+
+
+def test_unavailable_model_preserves_deterministic_response():
+    brain = BrainEngine(
+        model_provider=UnavailableModelProvider()
+    )
+
+    result = brain.process(UserInput(text="What is ORION?"))
+
+    assert result.model_response is None
+    assert result.model_error == "Local service is offline."
+    assert result.reasoning.response == (
+        "I understand that you are asking a question."
+    )
 
 
 def test_brain_tool_request():
