@@ -8,6 +8,7 @@ from orion.interface.manager import InterfaceManager
 from orion.utils.config import Config
 from orion.utils.logger import get_logger
 from orion.utils.system import OrionPaths
+from orion.voice import WakeWordDetector, WakeWordProfile
 
 
 class OrionAssistant:
@@ -20,7 +21,17 @@ class OrionAssistant:
 
         # Create the runtime engine before interfaces,
         # because interfaces use the engine's EventBus.
-        self.engine = RuntimeEngine()
+        self.wake_word_profile = WakeWordProfile(
+            user_id=config.get("voice.wake_word.user_id", "local-user"),
+            phrase=config.get("voice.wake_word.phrase", "hey orion"),
+            enabled=config.get("voice.wake_word.enabled", True),
+        )
+
+        self.engine = RuntimeEngine(
+            wake_word_detector=WakeWordDetector(
+                self.wake_word_profile
+            )
+        )
 
         self.interfaces = InterfaceManager()
 

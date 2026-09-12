@@ -11,6 +11,7 @@ from orion.core.events import (
 from orion.core.state import RuntimeState
 from orion.utils.logger import get_logger
 from orion.interface.base import BaseInterface
+from orion.voice import WakeWordDetector
 
 
 class RuntimeEngine:
@@ -18,7 +19,10 @@ class RuntimeEngine:
     Controls the lifecycle of the ORION runtime.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        wake_word_detector: WakeWordDetector | None = None,
+    ) -> None:
         self.logger = get_logger(
             "orion.core.engine"
         )
@@ -29,7 +33,45 @@ class RuntimeEngine:
 
         self.event_bus = EventBus()
 
+        self.wake_word_detector = wake_word_detector
+
+        if self.wake_word_detector is not None:
+            self.event_bus.subscribe(
+                EventType.VOICE_INPUT,
+                self.handle_voice_input,
+            )
+
         self.brain = BrainEngine(self.event_bus)
+
+    def handle_voice_input(self, event: Event) -> None:
+        """Route a platform audio transcript through the configured wake phrase."""
+
+        if self.wake_word_detector is None:
+            return
+
+        transcript = event.payload.get("text")
+
+        if not isinstance(transcript, str):
+            raise TypeError(
+                "VOICE_INPUT events must include text as a string."
+            )
+
+        match = self.wake_word_detector.detect(transcript)
+
+        if match is None:
+            return
+
+        self.event_bus.publish(
+            Event(
+                type=EventType.WAKE_WORD,
+                payload={
+                    "user_id": match.profile.user_id,
+                    "phrase": match.profile.phrase,
+                    "command": match.command,
+                },
+                source=event.source or "voice",
+            )
+        )
 
     @property
     def state(self) -> RuntimeState:

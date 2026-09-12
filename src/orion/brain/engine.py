@@ -18,6 +18,7 @@ from orion.brain.reasoning import (
 )
 from orion.core.events import Event, EventBus, EventType
 from orion.memory import MemoryManager
+from orion.pet import AvatarBehavior, AvatarExpression
 from orion.security import (
     PermissionLevel,
     SecurityRequest,
@@ -34,6 +35,7 @@ class BrainResult:
     plan: Plan
     context: ReasoningContext
     model_response: Optional[ModelResponse] = None
+    avatar_expression: Optional[AvatarExpression] = None
 
 
 class BrainEngine:
@@ -48,6 +50,7 @@ class BrainEngine:
         tool_registry: Optional[ToolRegistry] = None,
         security_validator: Optional[SecurityValidator] = None,
         model_provider: Optional[BaseModelProvider] = None,
+        avatar_behavior: Optional[AvatarBehavior] = None,
     ) -> None:
         self.intent_analyzer = IntentAnalyzer()
         self.reasoning_engine = ReasoningEngine()
@@ -57,12 +60,17 @@ class BrainEngine:
         self.tool_registry = tool_registry
         self.security_validator = security_validator
         self.model_provider = model_provider
+        self.avatar_behavior = avatar_behavior or AvatarBehavior()
         self.last_result: Optional[BrainResult] = None
 
         if self.event_bus is not None:
             self.event_bus.subscribe(
-                EventType.USER_INPUT,
-                self.handle_user_input,
+            EventType.USER_INPUT,
+            self.handle_user_input,
+        )
+            self.event_bus.subscribe(
+                EventType.WAKE_WORD,
+                self.handle_wake_word,
             )
 
     def process(
@@ -93,12 +101,17 @@ class BrainEngine:
         plan = self.planner.create_plan(
             reasoning
         )
+        avatar_expression = self.avatar_behavior.for_reasoning(
+            intent.type,
+            reasoning,
+        )
 
         result = BrainResult(
             reasoning=reasoning,
             plan=plan,
             context=context,
             model_response=model_response,
+            avatar_expression=avatar_expression,
         )
 
         self.last_result = result
@@ -155,6 +168,29 @@ class BrainEngine:
                 source="brain",
             )
         )
+        self._publish_avatar_expression(result.avatar_expression)
+
+    def handle_wake_word(self, event: Event) -> None:
+        """Tell a pet UI that ORION is ready to listen after activation."""
+
+        self._publish_avatar_expression(
+            self.avatar_behavior.for_wake_word()
+        )
+
+    def _publish_avatar_expression(
+        self,
+        expression: Optional[AvatarExpression],
+    ) -> None:
+        if self.event_bus is None or expression is None:
+            return
+
+        self.event_bus.publish(
+            Event(
+                type=EventType.AVATAR_EXPRESSION,
+                payload=expression.to_payload(),
+                source="brain",
+            )
+        )
 
     @staticmethod
     def _response_payload(
@@ -172,6 +208,11 @@ class BrainEngine:
                 else None
             ),
             "memories_used": len(result.context.memories),
+            "avatar": (
+                result.avatar_expression.to_payload()
+                if result.avatar_expression is not None
+                else None
+            ),
             "plan": [
                 {
                     "step_id": step.step_id,

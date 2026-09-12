@@ -14,6 +14,16 @@ runtime:
 interface:
   default: cli
 
+voice:
+  wake_word:
+    enabled: true
+    user_id: local-user
+    phrase: "hey orion"
+
+avatar:
+  style: "cute-white-robot"
+  accent_color: "mint-cyan"
+
 brain:
   provider: local
   model: ""

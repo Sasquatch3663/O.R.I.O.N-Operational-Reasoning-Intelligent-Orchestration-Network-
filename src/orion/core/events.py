@@ -17,6 +17,8 @@ class EventType(str, Enum):
 
     BRAIN_RESPONSE = "brain_response"
 
+    AVATAR_EXPRESSION = "avatar_expression"
+
     SYSTEM_EVENT = "system_event"
 
     ERROR = "error"

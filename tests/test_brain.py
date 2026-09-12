@@ -177,6 +177,24 @@ def test_brain_processes_user_input_events():
     )
 
 
+def test_brain_publishes_avatar_expression():
+    bus = EventBus()
+    BrainEngine(bus)
+    expressions = []
+
+    bus.subscribe(EventType.AVATAR_EXPRESSION, expressions.append)
+
+    bus.publish(
+        Event(
+            type=EventType.USER_INPUT,
+            payload={"text": "What is ORION?"},
+        )
+    )
+
+    assert expressions[0].payload["state"] == "thinking"
+    assert expressions[0].payload["gesture"] == "head_tilt"
+
+
 def test_tool_plan_requires_execute_permission():
     brain = BrainEngine()
 
