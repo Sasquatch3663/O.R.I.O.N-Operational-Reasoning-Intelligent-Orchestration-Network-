@@ -15,6 +15,8 @@ class EventType(str, Enum):
 
     USER_INPUT = "user_input"
 
+    BRAIN_RESPONSE = "brain_response"
+
     SYSTEM_EVENT = "system_event"
 
     ERROR = "error"

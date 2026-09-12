@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import threading
 
+from orion.brain.engine import BrainEngine
 from orion.core.events import (
     Event,
     EventBus,
@@ -27,6 +28,8 @@ class RuntimeEngine:
         self._stop_event = threading.Event()
 
         self.event_bus = EventBus()
+
+        self.brain = BrainEngine(self.event_bus)
 
     @property
     def state(self) -> RuntimeState:
