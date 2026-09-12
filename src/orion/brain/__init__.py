@@ -13,6 +13,13 @@ from orion.brain.intent import (
     IntentType,
 )
 
+from orion.brain.model import (
+    BaseModelProvider,
+    ModelProviderError,
+    ModelRequest,
+    ModelResponse,
+)
+
 from orion.brain.planner import (
     Plan,
     PlanStep,
@@ -33,6 +40,10 @@ __all__ = [
     "Intent",
     "IntentAnalyzer",
     "IntentType",
+    "BaseModelProvider",
+    "ModelProviderError",
+    "ModelRequest",
+    "ModelResponse",
     "Plan",
     "PlanStep",
     "Planner",

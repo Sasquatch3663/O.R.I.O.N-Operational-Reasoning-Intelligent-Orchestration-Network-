@@ -1,9 +1,12 @@
 import pytest # type: ignore
 
 from orion.brain import (
+    BaseModelProvider,
     BrainEngine,
     IntentAnalyzer,
     IntentType,
+    ModelRequest,
+    ModelResponse,
     UserInput,
 )
 from orion.core.events import Event, EventBus, EventType
@@ -13,6 +16,17 @@ from orion.security import (
     SecurityError,
     SecurityValidator,
 )
+
+
+class StubModelProvider(BaseModelProvider):
+    """Small provider implementation used to test the abstraction."""
+
+    def generate(self, request: ModelRequest) -> ModelResponse:
+        return ModelResponse(
+            text=f"Model reply for: {request.text}",
+            confidence=0.9,
+            metadata={"provider": "stub"},
+        )
 
 
 def test_user_input_normalization():
@@ -91,6 +105,31 @@ def test_brain_question():
 
     assert result.reasoning.response
     assert result.plan.steps == []
+
+
+def test_brain_uses_optional_model_provider():
+    brain = BrainEngine(model_provider=StubModelProvider())
+
+    result = brain.process(
+        UserInput(text="What is ORION?", source="test")
+    )
+
+    assert result.reasoning.response == (
+        "Model reply for: What is ORION?"
+    )
+    assert result.model_response is not None
+    assert result.model_response.metadata["provider"] == "stub"
+
+
+def test_model_request_builds_portable_prompt():
+    request = ModelRequest(
+        text="Hello ORION",
+        intent="conversation",
+        available_tools=["calendar"],
+    )
+
+    assert "Hello ORION" in request.prompt()
+    assert "calendar" in request.prompt()
 
 
 def test_brain_tool_request():

@@ -5,6 +5,11 @@ from typing import Any, Dict, Optional
 
 from orion.brain.input import UserInput
 from orion.brain.intent import IntentAnalyzer
+from orion.brain.model import (
+    BaseModelProvider,
+    ModelRequest,
+    ModelResponse,
+)
 from orion.brain.planner import Plan, Planner
 from orion.brain.reasoning import (
     ReasoningContext,
@@ -28,6 +33,7 @@ class BrainResult:
     reasoning: ReasoningResult
     plan: Plan
     context: ReasoningContext
+    model_response: Optional[ModelResponse] = None
 
 
 class BrainEngine:
@@ -41,6 +47,7 @@ class BrainEngine:
         memory_manager: Optional[MemoryManager] = None,
         tool_registry: Optional[ToolRegistry] = None,
         security_validator: Optional[SecurityValidator] = None,
+        model_provider: Optional[BaseModelProvider] = None,
     ) -> None:
         self.intent_analyzer = IntentAnalyzer()
         self.reasoning_engine = ReasoningEngine()
@@ -49,6 +56,7 @@ class BrainEngine:
         self.memory_manager = memory_manager
         self.tool_registry = tool_registry
         self.security_validator = security_validator
+        self.model_provider = model_provider
         self.last_result: Optional[BrainResult] = None
 
         if self.event_bus is not None:
@@ -77,6 +85,11 @@ class BrainEngine:
             context
         )
 
+        model_response = self._generate_model_response(context)
+
+        if model_response is not None:
+            reasoning.response = model_response.text
+
         plan = self.planner.create_plan(
             reasoning
         )
@@ -85,6 +98,7 @@ class BrainEngine:
             reasoning=reasoning,
             plan=plan,
             context=context,
+            model_response=model_response,
         )
 
         self.last_result = result
@@ -152,6 +166,11 @@ class BrainEngine:
             "response": result.reasoning.response,
             "actions": result.reasoning.actions,
             "confidence": result.reasoning.confidence,
+            "model": (
+                result.model_response.metadata
+                if result.model_response is not None
+                else None
+            ),
             "memories_used": len(result.context.memories),
             "plan": [
                 {
@@ -182,3 +201,24 @@ class BrainEngine:
             return {}
 
         return {"available_tools": self.tool_registry.names()}
+
+    def _generate_model_response(
+        self,
+        context: ReasoningContext,
+    ) -> Optional[ModelResponse]:
+        """Ask an optional provider to improve the deterministic response."""
+
+        if self.model_provider is None:
+            return None
+
+        return self.model_provider.generate(
+            ModelRequest(
+                text=context.user_input.text,
+                intent=context.intent.type.value,
+                memories=context.memories,
+                available_tools=context.metadata.get(
+                    "available_tools",
+                    [],
+                ),
+            )
+        )
