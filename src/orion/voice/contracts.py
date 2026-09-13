@@ -31,16 +31,37 @@ class MicrophonePermissionState:
         return self.status == MicrophonePermission.GRANTED
 
     def grant(self) -> None:
+        """Mark microphone permission as granted."""
         self.status = MicrophonePermission.GRANTED
 
     def deny(self) -> None:
+        """Mark microphone permission as denied."""
         self.status = MicrophonePermission.DENIED
 
     def require_recording_permission(self) -> None:
+        """Raise an error when recording is not permitted."""
         if not self.can_record:
             raise VoicePermissionError(
                 "Microphone permission has not been granted."
             )
+
+
+class VoiceSessionState(str, Enum):
+    """
+    High-level state of an ORION voice interaction.
+
+    The state machine is intentionally platform-independent.
+    Windows and Android clients can use the same states to
+    drive their own pet animations.
+    """
+
+    IDLE = "idle"
+    ACTIVATING = "activating"
+    LISTENING = "listening"
+    TRANSCRIBING = "transcribing"
+    THINKING = "thinking"
+    SPEAKING = "speaking"
+    ERROR = "error"
 
 
 @dataclass(frozen=True)
@@ -53,13 +74,19 @@ class AudioFormat:
 
     def __post_init__(self) -> None:
         if self.sample_rate <= 0:
-            raise ValueError("Audio sample rate must be positive.")
+            raise ValueError(
+                "Audio sample rate must be positive."
+            )
 
         if self.channels <= 0:
-            raise ValueError("Audio channel count must be positive.")
+            raise ValueError(
+                "Audio channel count must be positive."
+            )
 
         if self.sample_width_bytes <= 0:
-            raise ValueError("Audio sample width must be positive.")
+            raise ValueError(
+                "Audio sample width must be positive."
+            )
 
 
 @dataclass(frozen=True)
@@ -71,7 +98,9 @@ class AudioChunk:
 
     def __post_init__(self) -> None:
         if not self.data:
-            raise ValueError("Audio chunk cannot be empty.")
+            raise ValueError(
+                "Audio chunk cannot be empty."
+            )
 
 
 @dataclass(frozen=True)
@@ -83,7 +112,10 @@ class VoiceTranscript:
     confidence: Optional[float] = None
 
     def __post_init__(self) -> None:
-        if self.confidence is not None and not 0.0 <= self.confidence <= 1.0:
+        if (
+            self.confidence is not None
+            and not 0.0 <= self.confidence <= 1.0
+        ):
             raise ValueError(
                 "Transcript confidence must be between 0 and 1."
             )
@@ -93,7 +125,10 @@ class AudioCapture(ABC):
     """Captures a bounded audio segment from a platform microphone."""
 
     @abstractmethod
-    def capture(self, duration_seconds: float) -> AudioChunk:
+    def capture(
+        self,
+        duration_seconds: float,
+    ) -> AudioChunk:
         """Capture and return one PCM audio segment."""
 
 
@@ -101,7 +136,10 @@ class SpeechRecognizer(ABC):
     """Converts PCM audio into a final transcript."""
 
     @abstractmethod
-    def transcribe(self, audio: AudioChunk) -> VoiceTranscript:
+    def transcribe(
+        self,
+        audio: AudioChunk,
+    ) -> VoiceTranscript:
         """Transcribe one captured audio segment."""
 
 
@@ -109,5 +147,8 @@ class SpeechSynthesizer(ABC):
     """Speaks plain text through a platform output provider."""
 
     @abstractmethod
-    def speak(self, text: str) -> None:
+    def speak(
+        self,
+        text: str,
+    ) -> None:
         """Speak a non-empty response."""

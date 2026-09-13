@@ -3,6 +3,7 @@ from orion.voice.wake_word import (
     WakeWordMatch,
     WakeWordProfile,
 )
+
 from orion.voice.contracts import (
     AudioCapture,
     AudioChunk,
@@ -13,15 +14,21 @@ from orion.voice.contracts import (
     SpeechSynthesizer,
     VoiceError,
     VoicePermissionError,
+    VoiceSessionState,
     VoiceTranscript,
 )
+
 from orion.voice.service import VoiceService
+
 from orion.voice.windows import (
     SoundDeviceMicrophoneCapture,
     VoskSpeechRecognizer,
     WindowsSpeechSynthesizer,
 )
-from orion.voice.factory import create_windows_voice_service
+
+from orion.voice.factory import (
+    create_windows_voice_service,
+)
 
 
 __all__ = [
@@ -37,6 +44,7 @@ __all__ = [
     "SpeechSynthesizer",
     "VoiceError",
     "VoicePermissionError",
+    "VoiceSessionState",
     "VoiceTranscript",
     "VoiceService",
     "SoundDeviceMicrophoneCapture",

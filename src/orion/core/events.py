@@ -29,6 +29,8 @@ class EventType(str, Enum):
 
     VOICE_INPUT = "voice_input"
 
+    VOICE_STATE = "voice_state"
+
     VOICE_LISTENING = "voice_listening"
 
     VOICE_SPEAKING = "voice_speaking"
@@ -132,7 +134,10 @@ class EventBus:
                 None,
             )
 
-    def publish(self, event: Event) -> None:
+    def publish(
+        self,
+        event: Event,
+    ) -> None:
         """Publish an event to all matching subscribers."""
 
         if not isinstance(event, Event):
