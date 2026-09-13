@@ -42,3 +42,18 @@ def test_orion_startup_and_shutdown(tmp_path: Path):
         assistant.engine.state
         == RuntimeState.STOPPED
     )
+
+
+def test_voice_runtime_is_optional_when_voice_disabled():
+    root = Path(__file__).resolve().parents[1]
+
+    config = Config(root)
+
+    assistant = OrionAssistant(config)
+
+    assistant.start()
+
+    assert assistant.voice_service is None
+    assert assistant.voice_runtime is None
+
+    assistant.shutdown()

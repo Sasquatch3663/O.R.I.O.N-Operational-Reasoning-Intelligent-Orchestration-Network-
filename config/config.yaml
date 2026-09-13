@@ -16,11 +16,30 @@ interface:
 
 voice:
   enabled: false
+
+  # Keep the voice subsystem alive in the background.
+  continuous: true
+
   auto_speak_responses: true
+
   microphone:
     duration_seconds: 5
     sample_rate: 16000
     vosk_model_path: ""
+
+  runtime:
+    # Time between completed capture cycles.
+    #
+    # 0 means immediately begin the next capture.
+    capture_interval_seconds: 0.0
+
+    # Delay after an unexpected runtime failure.
+    error_retry_delay_seconds: 2.0
+
+    # Maximum time the application waits for the
+    # background voice worker to stop.
+    join_timeout_seconds: 3.0
+
   wake_word:
     enabled: true
     user_id: local-user

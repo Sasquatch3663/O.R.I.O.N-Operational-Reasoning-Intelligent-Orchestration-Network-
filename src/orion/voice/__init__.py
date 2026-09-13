@@ -20,6 +20,8 @@ from orion.voice.contracts import (
 
 from orion.voice.service import VoiceService
 
+from orion.voice.runtime import VoiceRuntime
+
 from orion.voice.windows import (
     SoundDeviceMicrophoneCapture,
     VoskSpeechRecognizer,
@@ -47,6 +49,7 @@ __all__ = [
     "VoiceSessionState",
     "VoiceTranscript",
     "VoiceService",
+    "VoiceRuntime",
     "SoundDeviceMicrophoneCapture",
     "VoskSpeechRecognizer",
     "WindowsSpeechSynthesizer",

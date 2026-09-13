@@ -18,12 +18,12 @@ from orion.voice.contracts import (
 
 class VoiceService:
     """
-    Coordinates voice capture, transcription, brain interaction,
-    speech output, and voice-session state.
+    Coordinates one voice interaction.
 
-    The service is platform-independent. Platform-specific
-    microphone, STT, and TTS implementations are injected
-    through the voice contracts.
+    VoiceRuntime is responsible for repeatedly calling this
+    service in the background.
+
+    VoiceService itself remains platform-independent.
     """
 
     def __init__(
@@ -48,8 +48,12 @@ class VoiceService:
         )
 
         self.source = source
-        self.auto_speak_responses = auto_speak_responses
-        self.default_capture_seconds = default_capture_seconds
+        self.auto_speak_responses = (
+            auto_speak_responses
+        )
+        self.default_capture_seconds = (
+            default_capture_seconds
+        )
 
         self._running = False
         self._state = VoiceSessionState.IDLE
@@ -69,14 +73,21 @@ class VoiceService:
                 self.handle_brain_response,
             )
 
+        self.event_bus.subscribe(
+            EventType.WAKE_WORD,
+            self.handle_wake_word,
+        )
+
     @property
     def is_running(self) -> bool:
         """Return True when the voice service is active."""
+
         return self._running
 
     @property
     def state(self) -> VoiceSessionState:
         """Return the current voice-session state."""
+
         with self._state_lock:
             return self._state
 
@@ -94,7 +105,7 @@ class VoiceService:
         )
 
     def stop(self) -> None:
-        """Stop the voice service and return to IDLE."""
+        """Stop the voice service."""
 
         self._running = False
 
@@ -110,21 +121,9 @@ class VoiceService:
         """
         Capture one utterance and publish it as VOICE_INPUT.
 
-        State flow:
+        This method performs exactly one capture cycle.
 
-            IDLE
-              ↓
-            ACTIVATING
-              ↓
-            LISTENING
-              ↓
-            TRANSCRIBING
-              ↓
-            THINKING
-              ↓
-            IDLE / SPEAKING
-
-        Errors transition through ERROR and then return to IDLE.
+        VoiceRuntime is responsible for repeatedly calling it.
         """
 
         if not self._running:
@@ -143,18 +142,18 @@ class VoiceService:
             )
 
         try:
-            # -------------------------------------------------
+            # ---------------------------------------------
             # ACTIVATING
-            # -------------------------------------------------
+            # ---------------------------------------------
 
             self._set_state(
                 VoiceSessionState.ACTIVATING,
                 reason="voice session starting",
             )
 
-            # -------------------------------------------------
+            # ---------------------------------------------
             # LISTENING
-            # -------------------------------------------------
+            # ---------------------------------------------
 
             self._set_state(
                 VoiceSessionState.LISTENING,
@@ -169,9 +168,9 @@ class VoiceService:
                 duration_seconds
             )
 
-            # -------------------------------------------------
+            # ---------------------------------------------
             # TRANSCRIBING
-            # -------------------------------------------------
+            # ---------------------------------------------
 
             self._set_state(
                 VoiceSessionState.TRANSCRIBING,
@@ -183,7 +182,9 @@ class VoiceService:
             )
 
         except VoiceError as exc:
-            self._handle_error(str(exc))
+            self._handle_error(
+                str(exc)
+            )
             return None
 
         except Exception as exc:
@@ -197,9 +198,9 @@ class VoiceService:
 
         text = transcript.text.strip()
 
-        # -----------------------------------------------------
-        # EMPTY TRANSCRIPT
-        # -----------------------------------------------------
+        # ---------------------------------------------
+        # NOTHING WAS HEARD
+        # ---------------------------------------------
 
         if not text:
             self._set_state(
@@ -209,14 +210,9 @@ class VoiceService:
 
             return transcript
 
-        # -----------------------------------------------------
-        # THINKING
-        # -----------------------------------------------------
-
-        self._set_state(
-            VoiceSessionState.THINKING,
-            reason="voice input published to runtime",
-        )
+        # ---------------------------------------------
+        # PUBLISH RAW VOICE INPUT
+        # ---------------------------------------------
 
         self.event_bus.publish(
             Event(
@@ -230,7 +226,37 @@ class VoiceService:
             )
         )
 
+        # RuntimeEngine will determine whether this
+        # transcript contains the user's wake phrase.
+        #
+        # If it does, handle_wake_word() moves the
+        # session to THINKING.
+        #
+        # If it doesn't, we remain IDLE.
+
+        if self.state != VoiceSessionState.THINKING:
+            self._set_state(
+                VoiceSessionState.IDLE,
+                reason="voice input did not activate ORION",
+            )
+
         return transcript
+
+    def handle_wake_word(
+        self,
+        event: Event,
+    ) -> None:
+        """
+        Handle successful wake-word detection.
+
+        RuntimeEngine owns wake-word matching. VoiceService
+        only reacts to the resulting event.
+        """
+
+        self._set_state(
+            VoiceSessionState.THINKING,
+            reason="wake word detected",
+        )
 
     def speak(
         self,
@@ -238,9 +264,6 @@ class VoiceService:
     ) -> bool:
         """
         Speak a response and publish lifecycle events.
-
-        SPEAKING automatically returns to IDLE after
-        successful or failed synthesis.
         """
 
         if self.synthesizer is None:
@@ -266,10 +289,14 @@ class VoiceService:
         )
 
         try:
-            self.synthesizer.speak(text)
+            self.synthesizer.speak(
+                text
+            )
 
         except VoiceError as exc:
-            self._handle_error(str(exc))
+            self._handle_error(
+                str(exc)
+            )
             return False
 
         except Exception as exc:
@@ -300,12 +327,7 @@ class VoiceService:
         self,
         event: Event,
     ) -> None:
-        """
-        Handle a BRAIN_RESPONSE event.
-
-        When automatic speech is enabled, the response
-        transitions the voice session into SPEAKING.
-        """
+        """Speak a brain response when automatic TTS is enabled."""
 
         response = event.payload.get(
             "response"
@@ -317,19 +339,16 @@ class VoiceService:
         if not response.strip():
             return
 
-        self.speak(response)
+        self.speak(
+            response
+        )
 
     def _set_state(
         self,
         new_state: VoiceSessionState,
         reason: str = "",
     ) -> None:
-        """
-        Change the current voice-session state and publish
-        a VOICE_STATE event.
-
-        Duplicate state assignments are ignored.
-        """
+        """Update and publish the voice-session state."""
 
         with self._state_lock:
             previous_state = self._state
@@ -359,13 +378,7 @@ class VoiceService:
         self,
         state: VoiceSessionState,
     ) -> None:
-        """
-        Convert voice state into a platform-neutral avatar
-        expression.
-
-        Windows and Android renderers can later interpret
-        these expressions independently.
-        """
+        """Convert voice state into a platform-neutral avatar expression."""
 
         expression: AvatarExpression | None = None
 
@@ -426,7 +439,7 @@ class VoiceService:
         self,
         active: bool,
     ) -> None:
-        """Publish microphone-listening status."""
+        """Publish microphone listening state."""
 
         self.event_bus.publish(
             Event(
@@ -442,10 +455,7 @@ class VoiceService:
         self,
         message: str,
     ) -> None:
-        """
-        Transition into ERROR, publish the voice error,
-        then safely return to IDLE.
-        """
+        """Enter ERROR state and recover to IDLE."""
 
         self._set_state(
             VoiceSessionState.ERROR,
