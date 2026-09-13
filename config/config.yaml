@@ -25,7 +25,7 @@ voice:
   microphone:
     duration_seconds: 5
     sample_rate: 16000
-    vosk_model_path: ""
+    vosk_model_path: "models/vosk-model-small-en-us-0.15"
 
   runtime:
     # Time between completed capture cycles.
