@@ -18,7 +18,7 @@ from orion.voice import (
     WakeWordDetector,
     WakeWordProfile,
 )
-
+from orion.voice.service import VoiceService
 
 # ============================================================
 # TEST DOUBLES
@@ -1541,3 +1541,124 @@ def test_voice_runtime_rejects_invalid_join_timeout():
             "Invalid join timeout "
             "should raise ValueError."
         )
+
+class FakeAudioCapture:
+    def __init__(self):
+        self.calls = 0
+
+    def capture(self, duration_seconds):
+        self.calls += 1
+        return AudioChunk(
+            data=b"\x00\x00",
+            format=AudioFormat(),
+        )
+
+
+class FakeSpeechRecognizer:
+    def transcribe(self, audio):
+        return VoiceTranscript(text="hello orion")
+
+def test_unknown_microphone_permission_is_rejected():
+    event_bus = EventBus()
+
+    capture = FakeAudioCapture()
+    recognizer = FakeSpeechRecognizer()
+
+    permission = MicrophonePermissionState()
+
+    service = VoiceService(
+        event_bus=event_bus,
+        capture=capture,
+        recognizer=recognizer,
+        permission=permission,
+    )
+
+    errors = []
+
+    event_bus.subscribe(
+        EventType.VOICE_ERROR,
+        errors.append,
+    )
+
+    service.start()
+
+    result = service.listen_once()
+
+    assert result is None
+    assert service.state == VoiceSessionState.IDLE
+    assert len(errors) == 1
+    assert (
+        "not been granted"
+        in errors[0].payload["message"]
+    )
+    assert capture.calls == 0
+
+def test_denied_microphone_permission_is_rejected():
+    event_bus = EventBus()
+
+    capture = FakeAudioCapture()
+    recognizer = FakeSpeechRecognizer()
+
+    permission = MicrophonePermissionState()
+    permission.deny()
+
+    service = VoiceService(
+        event_bus=event_bus,
+        capture=capture,
+        recognizer=recognizer,
+        permission=permission,
+    )
+
+    errors = []
+
+    event_bus.subscribe(
+        EventType.VOICE_ERROR,
+        errors.append,
+    )
+
+    service.start()
+
+    result = service.listen_once()
+
+    assert result is None
+    assert service.state == VoiceSessionState.IDLE
+    assert len(errors) == 1
+    assert (
+        "denied"
+        in errors[0].payload["message"]
+    )
+    assert capture.calls == 0
+
+def test_permission_failure_does_not_publish_active_listening():
+    event_bus = EventBus()
+
+    capture = FakeAudioCapture()
+    recognizer = FakeSpeechRecognizer()
+
+    permission = MicrophonePermissionState()
+    permission.deny()
+
+    service = VoiceService(
+        event_bus=event_bus,
+        capture=capture,
+        recognizer=recognizer,
+        permission=permission,
+    )
+
+    listening_events = []
+
+    event_bus.subscribe(
+        EventType.VOICE_LISTENING,
+        listening_events.append,
+    )
+
+    service.start()
+    result = service.listen_once()
+
+    assert result is None
+    assert service.state == VoiceSessionState.IDLE
+    assert all(
+        event.payload["active"] is False
+        for event in listening_events
+    )
+    assert capture.calls == 0

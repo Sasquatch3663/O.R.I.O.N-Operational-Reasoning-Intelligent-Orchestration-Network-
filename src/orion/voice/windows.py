@@ -19,7 +19,7 @@ from orion.voice.contracts import (
 
 
 class SoundDeviceMicrophoneCapture(AudioCapture):
-    """Optional local microphone adapter powered by `sounddevice`."""
+    """Optional local microphone adapter powered by sounddevice."""
 
     def __init__(
         self,
@@ -29,9 +29,26 @@ class SoundDeviceMicrophoneCapture(AudioCapture):
         self.audio_format = audio_format
         self.device = device
 
-    def capture(self, duration_seconds: float) -> AudioChunk:
+    def capture(
+        self,
+        duration_seconds: float,
+    ) -> AudioChunk:
+        """Capture one bounded PCM microphone segment."""
+
         if duration_seconds <= 0:
-            raise ValueError("Capture duration must be positive.")
+            raise ValueError(
+                "Capture duration must be positive."
+            )
+
+        frame_count = int(
+            duration_seconds
+            * self.audio_format.sample_rate
+        )
+
+        if frame_count <= 0:
+            raise ValueError(
+                "Capture duration is too short for the configured sample rate."
+            )
 
         try:
             import sounddevice as sd  # type: ignore
@@ -42,18 +59,36 @@ class SoundDeviceMicrophoneCapture(AudioCapture):
 
         try:
             recording = sd.rec(
-                int(duration_seconds * self.audio_format.sample_rate),
+                frame_count,
                 samplerate=self.audio_format.sample_rate,
                 channels=self.audio_format.channels,
                 dtype="int16",
                 device=self.device,
             )
+
             sd.wait()
+
         except Exception as exc:
-            raise VoiceError("Unable to capture microphone audio.") from exc
+            raise VoiceError(
+                "Unable to capture microphone audio. "
+                "Check microphone permissions, device availability, "
+                "and Windows audio settings."
+            ) from exc
+
+        try:
+            data = recording.tobytes()
+        except Exception as exc:
+            raise VoiceError(
+                "Microphone returned an invalid audio buffer."
+            ) from exc
+
+        if not data:
+            raise VoiceError(
+                "Microphone returned an empty audio buffer."
+            )
 
         return AudioChunk(
-            data=recording.tobytes(),
+            data=data,
             format=self.audio_format,
         )
 

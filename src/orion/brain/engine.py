@@ -19,7 +19,7 @@ from orion.brain.reasoning import (
 )
 from orion.core.events import Event, EventBus, EventType
 from orion.memory import MemoryManager
-from orion.pet import AvatarBehavior, AvatarExpression
+from orion.pet.behavior import AvatarBehavior, AvatarExpression
 from orion.security import (
     PermissionLevel,
     SecurityRequest,

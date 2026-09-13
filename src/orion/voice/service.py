@@ -78,18 +78,24 @@ class VoiceService:
             self.handle_wake_word,
         )
 
+    # =========================================================
+    # STATUS
+    # =========================================================
+
     @property
     def is_running(self) -> bool:
         """Return True when the voice service is active."""
-
         return self._running
 
     @property
     def state(self) -> VoiceSessionState:
         """Return the current voice-session state."""
-
         with self._state_lock:
             return self._state
+
+    # =========================================================
+    # LIFECYCLE
+    # =========================================================
 
     def start(self) -> None:
         """Start the voice service."""
@@ -109,10 +115,16 @@ class VoiceService:
 
         self._running = False
 
+        self._publish_listening(False)
+
         self._set_state(
             VoiceSessionState.IDLE,
             reason="voice service stopped",
         )
+
+    # =========================================================
+    # LISTENING
+    # =========================================================
 
     def listen_once(
         self,
@@ -152,6 +164,15 @@ class VoiceService:
             )
 
             # ---------------------------------------------
+            # PERMISSION CHECK
+            # ---------------------------------------------
+
+            # Permission is checked BEFORE entering
+            # LISTENING so denied/unknown microphone access
+            # never produces a false listening state.
+            self.permission.require_recording_permission()
+
+            # ---------------------------------------------
             # LISTENING
             # ---------------------------------------------
 
@@ -161,8 +182,6 @@ class VoiceService:
             )
 
             self._publish_listening(True)
-
-            self.permission.require_recording_permission()
 
             audio = self.capture.capture(
                 duration_seconds
@@ -226,13 +245,8 @@ class VoiceService:
             )
         )
 
-        # RuntimeEngine will determine whether this
-        # transcript contains the user's wake phrase.
-        #
-        # If it does, handle_wake_word() moves the
-        # session to THINKING.
-        #
-        # If it doesn't, we remain IDLE.
+        # RuntimeEngine determines whether the transcript
+        # contains the configured wake phrase.
 
         if self.state != VoiceSessionState.THINKING:
             self._set_state(
@@ -241,6 +255,10 @@ class VoiceService:
             )
 
         return transcript
+
+    # =========================================================
+    # WAKE WORD
+    # =========================================================
 
     def handle_wake_word(
         self,
@@ -257,6 +275,10 @@ class VoiceService:
             VoiceSessionState.THINKING,
             reason="wake word detected",
         )
+
+    # =========================================================
+    # SPEECH
+    # =========================================================
 
     def speak(
         self,
@@ -343,6 +365,10 @@ class VoiceService:
             response
         )
 
+    # =========================================================
+    # STATE
+    # =========================================================
+
     def _set_state(
         self,
         new_state: VoiceSessionState,
@@ -373,6 +399,10 @@ class VoiceService:
         self._publish_avatar_for_state(
             new_state
         )
+
+    # =========================================================
+    # AVATAR
+    # =========================================================
 
     def _publish_avatar_for_state(
         self,
@@ -434,6 +464,10 @@ class VoiceService:
                 source=self.source,
             )
         )
+
+    # =========================================================
+    # EVENTS
+    # =========================================================
 
     def _publish_listening(
         self,

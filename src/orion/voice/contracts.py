@@ -15,6 +15,8 @@ class VoicePermissionError(VoiceError):
 
 
 class MicrophonePermission(str, Enum):
+    """Application-level microphone permission state."""
+
     UNKNOWN = "unknown"
     GRANTED = "granted"
     DENIED = "denied"
@@ -28,7 +30,18 @@ class MicrophonePermissionState:
 
     @property
     def can_record(self) -> bool:
+        """Return True only when microphone recording is permitted."""
         return self.status == MicrophonePermission.GRANTED
+
+    @property
+    def is_denied(self) -> bool:
+        """Return True when microphone access has been explicitly denied."""
+        return self.status == MicrophonePermission.DENIED
+
+    @property
+    def is_unknown(self) -> bool:
+        """Return True when permission has not been established."""
+        return self.status == MicrophonePermission.UNKNOWN
 
     def grant(self) -> None:
         """Mark microphone permission as granted."""
@@ -38,21 +51,38 @@ class MicrophonePermissionState:
         """Mark microphone permission as denied."""
         self.status = MicrophonePermission.DENIED
 
+    def reset(self) -> None:
+        """Return permission state to unknown."""
+        self.status = MicrophonePermission.UNKNOWN
+
     def require_recording_permission(self) -> None:
-        """Raise an error when recording is not permitted."""
-        if not self.can_record:
+        """
+        Require microphone permission before recording.
+
+        Both UNKNOWN and DENIED are rejected because the application
+        must never assume that microphone access is available.
+        """
+
+        if self.status == MicrophonePermission.GRANTED:
+            return
+
+        if self.status == MicrophonePermission.DENIED:
             raise VoicePermissionError(
-                "Microphone permission has not been granted."
+                "Microphone permission has been denied."
             )
+
+        raise VoicePermissionError(
+            "Microphone permission has not been granted."
+        )
 
 
 class VoiceSessionState(str, Enum):
     """
     High-level state of an ORION voice interaction.
 
-    The state machine is intentionally platform-independent.
-    Windows and Android clients can use the same states to
-    drive their own pet animations.
+    The state machine is platform-independent so Windows and
+    Android clients can use the same states to drive their
+    respective pet animations.
     """
 
     IDLE = "idle"

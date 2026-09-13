@@ -88,7 +88,6 @@ class OrionAssistant:
         # -----------------------------------------------------
 
         self.voice_service: VoiceService | None = None
-
         self.voice_runtime: VoiceRuntime | None = None
 
         if config.get(
@@ -158,7 +157,12 @@ class OrionAssistant:
             self.cli
         )
 
+        # -----------------------------------------------------
+        # APPLICATION STATE
+        # -----------------------------------------------------
+
         self.initialized = False
+        self._running = False
 
     # =========================================================
     # INITIALIZATION
@@ -178,7 +182,6 @@ class OrionAssistant:
         )
 
         self.paths.create_directories()
-
         self.engine.initialize()
 
         self.initialized = True
@@ -192,7 +195,13 @@ class OrionAssistant:
     # =========================================================
 
     def start(self) -> None:
-        """Start ORION."""
+        """Start ORION and all configured runtime components."""
+
+        if self._running:
+            self.logger.warning(
+                "ORION start requested while already running."
+            )
+            return
 
         if not self.initialized:
             self.initialize()
@@ -202,11 +211,12 @@ class OrionAssistant:
         )
 
         self.engine.start()
-
         self.interfaces.start_all()
 
         if self.voice_runtime is not None:
             self.voice_runtime.start()
+
+        self._running = True
 
         self.logger.info(
             "ORION is now running."
@@ -217,33 +227,56 @@ class OrionAssistant:
     # =========================================================
 
     def run(self) -> None:
-        """Run ORION."""
+        """Run ORION through the default CLI interface."""
 
         if not self.initialized:
             self.initialize()
 
-        if not self.engine.is_running:
+        if not self._running:
             self.start()
 
-        self.engine.run(
-            self.cli
-        )
+        try:
+            self.engine.run(
+                self.cli
+            )
+        finally:
+            if self._running:
+                self.stop()
 
     # =========================================================
     # STOP
     # =========================================================
 
     def stop(self) -> None:
-        """Stop ORION runtime components."""
+        """Stop active ORION runtime components."""
+
+        if not self._running:
+            self.logger.debug(
+                "ORION stop requested while not running."
+            )
+
+            # Make sure voice resources are not left active.
+            if self.voice_runtime is not None:
+                self.voice_runtime.stop()
+
+            return
 
         self.logger.info(
             "Stopping ORION."
         )
 
+        # Stop background voice processing first.
         if self.voice_runtime is not None:
             self.voice_runtime.stop()
 
+        # Stop core runtime.
         self.engine.stop()
+
+        self._running = False
+
+        self.logger.info(
+            "ORION stopped."
+        )
 
     # =========================================================
     # SHUTDOWN
@@ -256,12 +289,8 @@ class OrionAssistant:
             "Shutting down ORION."
         )
 
-        # Stop background voice processing first.
-        if self.voice_runtime is not None:
-            self.voice_runtime.stop()
-
-        elif self.voice_service is not None:
-            self.voice_service.stop()
+        # Stop active components first.
+        self.stop()
 
         # Stop interfaces.
         self.interfaces.stop_all()
@@ -270,6 +299,7 @@ class OrionAssistant:
         self.engine.shutdown()
 
         self.initialized = False
+        self._running = False
 
         self.logger.info(
             "ORION shutdown completed."
@@ -291,7 +321,7 @@ class OrionAssistant:
             "runtime_state": (
                 self.engine.state.value
             ),
-            "running": self.engine.is_running,
+            "running": self._running,
             "voice_enabled": (
                 self.voice_service is not None
             ),
