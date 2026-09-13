@@ -29,6 +29,12 @@ class EventType(str, Enum):
 
     VOICE_INPUT = "voice_input"
 
+    VOICE_LISTENING = "voice_listening"
+
+    VOICE_SPEAKING = "voice_speaking"
+
+    VOICE_ERROR = "voice_error"
+
     WAKE_WORD = "wake_word"
 
 

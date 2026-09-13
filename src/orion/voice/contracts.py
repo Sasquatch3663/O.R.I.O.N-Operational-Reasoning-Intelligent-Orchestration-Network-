@@ -1,0 +1,113 @@
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from enum import Enum
+from typing import Optional
+
+
+class VoiceError(Exception):
+    """Raised when a voice component cannot complete its operation."""
+
+
+class VoicePermissionError(VoiceError):
+    """Raised when microphone use is attempted without permission."""
+
+
+class MicrophonePermission(str, Enum):
+    UNKNOWN = "unknown"
+    GRANTED = "granted"
+    DENIED = "denied"
+
+
+@dataclass
+class MicrophonePermissionState:
+    """Application-level record of microphone permission state."""
+
+    status: MicrophonePermission = MicrophonePermission.UNKNOWN
+
+    @property
+    def can_record(self) -> bool:
+        return self.status == MicrophonePermission.GRANTED
+
+    def grant(self) -> None:
+        self.status = MicrophonePermission.GRANTED
+
+    def deny(self) -> None:
+        self.status = MicrophonePermission.DENIED
+
+    def require_recording_permission(self) -> None:
+        if not self.can_record:
+            raise VoicePermissionError(
+                "Microphone permission has not been granted."
+            )
+
+
+@dataclass(frozen=True)
+class AudioFormat:
+    """PCM audio format shared by capture and recognition providers."""
+
+    sample_rate: int = 16000
+    channels: int = 1
+    sample_width_bytes: int = 2
+
+    def __post_init__(self) -> None:
+        if self.sample_rate <= 0:
+            raise ValueError("Audio sample rate must be positive.")
+
+        if self.channels <= 0:
+            raise ValueError("Audio channel count must be positive.")
+
+        if self.sample_width_bytes <= 0:
+            raise ValueError("Audio sample width must be positive.")
+
+
+@dataclass(frozen=True)
+class AudioChunk:
+    """A short, captured block of raw PCM audio."""
+
+    data: bytes
+    format: AudioFormat
+
+    def __post_init__(self) -> None:
+        if not self.data:
+            raise ValueError("Audio chunk cannot be empty.")
+
+
+@dataclass(frozen=True)
+class VoiceTranscript:
+    """Final speech-recognition output before wake-word processing."""
+
+    text: str
+    language: str = "en-US"
+    confidence: Optional[float] = None
+
+    def __post_init__(self) -> None:
+        if self.confidence is not None and not 0.0 <= self.confidence <= 1.0:
+            raise ValueError(
+                "Transcript confidence must be between 0 and 1."
+            )
+
+
+class AudioCapture(ABC):
+    """Captures a bounded audio segment from a platform microphone."""
+
+    @abstractmethod
+    def capture(self, duration_seconds: float) -> AudioChunk:
+        """Capture and return one PCM audio segment."""
+
+
+class SpeechRecognizer(ABC):
+    """Converts PCM audio into a final transcript."""
+
+    @abstractmethod
+    def transcribe(self, audio: AudioChunk) -> VoiceTranscript:
+        """Transcribe one captured audio segment."""
+
+
+class SpeechSynthesizer(ABC):
+    """Speaks plain text through a platform output provider."""
+
+    @abstractmethod
+    def speak(self, text: str) -> None:
+        """Speak a non-empty response."""

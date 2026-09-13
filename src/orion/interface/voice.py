@@ -5,20 +5,22 @@ from typing import Optional
 from orion.core.events import EventBus
 from orion.interface.base import BaseInterface
 from orion.utils.logger import get_logger
+from orion.voice import VoiceService
 
 
 class VoiceInterface(BaseInterface):
     """
-    Placeholder for the future ORION voice interface.
-
-    Actual speech recognition and speech synthesis will be
-    implemented during the Voice phase.
+    Event-driven voice interface backed by a VoiceService.
     """
 
-    def __init__(self, event_bus: EventBus) -> None:
-        super().__init__("voice")
+    def __init__(
+        self,
+        event_bus: EventBus,
+        service: VoiceService,
+    ) -> None:
+        super().__init__("voice", event_bus)
 
-        self.event_bus = event_bus
+        self.service = service
 
         self.logger = get_logger(
             "orion.interface.voice"
@@ -28,6 +30,7 @@ class VoiceInterface(BaseInterface):
         """Start the voice interface."""
 
         self._running = True
+        self.service.start()
 
         self.logger.info(
             "Voice interface started."
@@ -37,6 +40,7 @@ class VoiceInterface(BaseInterface):
         """Stop the voice interface."""
 
         self._running = False
+        self.service.stop()
 
         self.logger.info(
             "Voice interface stopped."
@@ -44,24 +48,22 @@ class VoiceInterface(BaseInterface):
 
     def receive(self) -> Optional[str]:
         """
-        Receive voice input.
-
-        Not implemented until the Voice phase.
+        Capture and transcribe a single voice turn.
         """
 
-        raise NotImplementedError(
-            "Voice input will be implemented "
-            "in the ORION Voice phase."
-        )
+        if not self._running:
+            raise RuntimeError("Voice interface is not running.")
+
+        transcript = self.service.listen_once()
+
+        if transcript is None:
+            return None
+
+        return transcript.text or None
 
     def send(self, message: str) -> None:
         """
-        Send voice output.
-
-        Not implemented until the Voice phase.
+        Speak voice output through the configured synthesizer.
         """
 
-        raise NotImplementedError(
-            "Voice output will be implemented "
-            "in the ORION Voice phase."
-        )
+        self.service.speak(message)

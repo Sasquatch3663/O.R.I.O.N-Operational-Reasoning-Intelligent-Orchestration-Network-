@@ -53,7 +53,24 @@ class IntentAnalyzer:
                 parameters={},
             )
 
-        if normalized.endswith("?"):
+        if normalized.endswith("?") or normalized.startswith(
+            (
+                "what ",
+                "when ",
+                "where ",
+                "who ",
+                "why ",
+                "how ",
+                "can ",
+                "could ",
+                "would ",
+                "do ",
+                "does ",
+                "is ",
+                "are ",
+                "will ",
+            )
+        ):
             return Intent(
                 type=IntentType.QUESTION,
                 confidence=0.8,

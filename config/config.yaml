@@ -15,6 +15,12 @@ interface:
   default: cli
 
 voice:
+  enabled: false
+  auto_speak_responses: true
+  microphone:
+    duration_seconds: 5
+    sample_rate: 16000
+    vosk_model_path: ""
   wake_word:
     enabled: true
     user_id: local-user

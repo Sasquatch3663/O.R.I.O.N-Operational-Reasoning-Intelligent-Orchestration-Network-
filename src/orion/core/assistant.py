@@ -9,7 +9,12 @@ from orion.interface.manager import InterfaceManager
 from orion.utils.config import Config
 from orion.utils.logger import get_logger
 from orion.utils.system import OrionPaths
-from orion.voice import WakeWordDetector, WakeWordProfile
+from orion.voice import (
+    VoiceService,
+    WakeWordDetector,
+    WakeWordProfile,
+    create_windows_voice_service,
+)
 
 
 class OrionAssistant:
@@ -46,6 +51,33 @@ class OrionAssistant:
             ),
             model_provider=model_provider,
         )
+
+        self.voice_service: VoiceService | None = None
+
+        if config.get("voice.enabled", False):
+            self.voice_service = create_windows_voice_service(
+                event_bus=self.engine.event_bus,
+                model_path=config.get(
+                    "voice.microphone.vosk_model_path",
+                    "",
+                ),
+                sample_rate=int(
+                    config.get(
+                        "voice.microphone.sample_rate",
+                        16000,
+                    )
+                ),
+                default_capture_seconds=float(
+                    config.get(
+                        "voice.microphone.duration_seconds",
+                        5,
+                    )
+                ),
+                auto_speak_responses=config.get(
+                    "voice.auto_speak_responses",
+                    True,
+                ),
+            )
 
         self.interfaces = InterfaceManager()
 
@@ -88,6 +120,9 @@ class OrionAssistant:
         self.engine.start()
         self.interfaces.start_all()
 
+        if self.voice_service is not None:
+            self.voice_service.start()
+
         self.logger.info("ORION is now running.")
 
     def run(self) -> None:
@@ -114,6 +149,10 @@ class OrionAssistant:
         self.logger.info("Shutting down ORION.")
 
         self.interfaces.stop_all()
+
+        if self.voice_service is not None:
+            self.voice_service.stop()
+
         self.engine.shutdown()
 
         self.initialized = False

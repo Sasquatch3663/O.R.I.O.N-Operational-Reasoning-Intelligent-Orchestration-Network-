@@ -57,6 +57,14 @@ def test_question_intent():
     assert intent.confidence > 0
 
 
+def test_spoken_question_intent_without_question_mark():
+    analyzer = IntentAnalyzer()
+
+    intent = analyzer.analyze("what time is it")
+
+    assert intent.type == IntentType.QUESTION
+
+
 def test_memory_intent():
     analyzer = IntentAnalyzer()
 
